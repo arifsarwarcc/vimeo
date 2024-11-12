@@ -1,0 +1,122 @@
+<script src="https://player.vimeo.com/api/player.js"></script>
+<script>
+/**
+* Author: Md Hasanuzzamna
+* Linkedin: https://linkedin.com/in/md-h
+* Youtube: https://youtube.com/@leomeasure
+* Email: info@leomeasure.com
+*/
+
+(function() {
+    var videoProgress = [10, 25, 50, 75];
+    function handlePlayer(player) {
+        var triggeredSteps = {};
+        var video_title = '';
+        var video_url = '';
+        var isStarted = false;
+        var upperRange = 2;
+
+        player.getVideoTitle().then(function(title) {
+            video_title = title;
+        });
+
+        player.getVideoUrl().then(function(url) {
+            video_url = url;
+        });
+
+        player.on('play', function(data) {
+
+            if (!isStarted) {
+                if(data.duration < 30) {
+                    upperRange = 6;
+                }
+
+                window.dataLayer = window.dataLayer || [];
+                dataLayer.push({
+                    event: 'Vimeo Video',
+                    video_status: 'start',
+                    video_current_time: 0,
+                    video_duration: data.duration,
+                    video_percent: 0,
+                    video_provider: 'Vimeo',
+                    video_title: video_title,
+                    video_url: video_url
+                })
+                isStarted = true;
+            }
+        });
+
+        player.on('ended', function(data) {
+            window.dataLayer = window.dataLayer || [];
+            dataLayer.push({
+                event: 'Vimeo Video',
+                video_status: 'complete',
+                video_current_time: data.seconds,
+                video_duration: data.duration,
+                video_percent: 100,
+                video_provider: 'Vimeo',
+                video_title: video_title,
+                video_url: video_url
+            });
+        });
+
+        player.on('timeupdate', function(data) {
+            var actualPercent = data.percent * 100;
+
+            videoProgress.forEach(function(targetPercent) {
+                if (
+                    !triggeredSteps[targetPercent] &&
+                    actualPercent >= targetPercent &&
+                    actualPercent <= targetPercent + upperRange
+                ) {
+                    window.dataLayer = window.dataLayer || [];
+                    dataLayer.push({
+                        event: 'Vimeo Video',
+                        video_status: 'progress',
+                        video_current_time: data.seconds,
+                        video_duration: data.duration,
+                        video_percent: targetPercent,
+                        video_provider: 'Vimeo',
+                        video_title: video_title,
+                        video_url: video_url
+                    });
+                    triggeredSteps[targetPercent] = true;
+                }
+            });
+        });
+    }
+
+    function findVimeoPlayer(node) {
+        if (node.tagName === 'IFRAME' && node.src.includes('player.vimeo.com/video')) {
+            var player = new Vimeo.Player(node);
+            handlePlayer(player);
+        } else {
+            var iframes = node.querySelectorAll('iframe');
+            iframes.forEach(function(iframe) {
+                if (iframe.src.includes('player.vimeo.com/video')) {
+                    var player = new Vimeo.Player(iframe);
+                    handlePlayer(player);
+                }
+            });
+        }
+    }
+
+    var observer = new MutationObserver(function(mutationsList) {
+        mutationsList.forEach(function(mutation) {
+            if (mutation.type === 'childList') {
+                mutation.addedNodes.forEach(function(node) {
+                    findVimeoPlayer(node);
+                });
+            }
+        });
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+
+
+    var existingPlayers = document.querySelectorAll('iframe[src^="https://player.vimeo.com/video"]');
+    existingPlayers.forEach(function(playerNode) {
+        handlePlayer(new Vimeo.Player(playerNode));
+    });
+})();
+</script>
